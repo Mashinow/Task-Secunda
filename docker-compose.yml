@@ -1,0 +1,63 @@
+volumes:
+  postgres-data:
+
+services:
+  # ─── PostgreSQL ───────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16
+    container_name: org-handbook-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: orgdb
+      POSTGRES_USER: orguser
+      POSTGRES_PASSWORD: orgpass
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orguser -d orgdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Основное приложение ──────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+
+    container_name: org-handbook-app
+    restart: unless-stopped
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://orguser:orgpass@postgres:5432/orgdb"
+      API_KEY: "${API_KEY:-secret-key-change-me}"
+
+    ports:
+      - "8000:8000"
+
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/docs"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrate
+
+    container_name: org-handbook-migrate
+    profiles: ["migrate"]
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://orguser:orgpass@postgres:5432/orgdb"

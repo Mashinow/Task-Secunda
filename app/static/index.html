@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Справочник организаций</title>
+<style>
+  /* ─── Reset & Variables ─── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0f1117;
+    --bg-card:   #161821;
+    --bg-input:  #1e2130;
+    --border:    #2a2d3a;
+    --text:      #c8ccd8;
+    --text-dim:  #606880;
+    --accent:    #5eead4;
+    --accent-dim:#3a7a72;
+    --red:       #f87171;
+    --gold:      #fbbf24;
+    --radius:    10px;
+    --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    --font-sans: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  html { font-size: 15px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  /* ─── Layout ─── */
+  .shell {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: 52px 1fr;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ─── Header ─── */
+  .header {
+    grid-column: 1 / -1;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 22px;
+  }
+  .header .logo {
+    width: 26px; height: 26px;
+    background: var(--accent);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--bg); font-weight: 700;
+  }
+  .header h1 { font-size: 0.95rem; font-weight: 600; color: #fff; letter-spacing: .02em; }
+  .header .spacer { flex: 1; }
+  .header .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 6px var(--accent);
+  }
+  .header .status-dot.off { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .header .status-label { font-size: 0.75rem; color: var(--text-dim); }
+
+  /* ─── Sidebar ─── */
+  .sidebar {
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 14px 10px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .nav-btn {
+    display: flex; align-items: center; gap: 10px;
+    background: transparent; border: none; color: var(--text);
+    padding: 9px 12px; border-radius: var(--radius);
+    cursor: pointer; font-size: 0.82rem; font-family: inherit;
+    transition: background .15s, color .15s;
+    text-align: left; width: 100%;
+  }
+  .nav-btn:hover { background: var(--bg-input); }
+  .nav-btn.active { background: var(--bg-input); color: #fff; }
+  .nav-btn .icon { width: 18px; text-align: center; font-size: 14px; opacity: .7; }
+  .nav-btn.active .icon { opacity: 1; color: var(--accent); }
+  .nav-sep { height: 1px; background: var(--border); margin: 6px 8px; }
+
+  /* ─── Main ─── */
+  .main {
+    overflow-y: auto;
+    padding: 24px 28px;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+
+  /* ─── Panels (sections) ─── */
+  .panel { display: none; flex-direction: column; gap: 14px; }
+  .panel.visible { display: flex; }
+
+  .panel-title {
+    font-size: 0.78rem; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--text-dim); font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-title .line { flex: 1; height: 1px; background: var(--border); }
+
+  /* ─── Controls row ─── */
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end;
+  }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; }
+  .field input, .field select {
+    background: var(--bg-input); border: 1px solid var(--border);
+    color: #fff; border-radius: 6px; padding: 7px 10px;
+    font-size: 0.82rem; font-family: inherit; outline: none;
+    min-width: 130px; transition: border-color .15s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+
+  .btn {
+    background: var(--accent); color: var(--bg); border: none;
+    padding: 7px 16px; border-radius: 6px; font-size: 0.8rem;
+    font-weight: 600; cursor: pointer; font-family: inherit;
+    transition: opacity .15s; white-space: nowrap;
+  }
+  .btn:hover { opacity: .82; }
+  .btn.secondary {
+    background: var(--bg-input); color: var(--text); border: 1px solid var(--border);
+  }
+  .btn.secondary:hover { border-color: var(--accent); color: #fff; }
+
+  /* ─── Results table ─── */
+  .result-wrap {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .result-wrap .empty {
+    padding: 28px; text-align: center; color: var(--text-dim); font-size: 0.82rem;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  thead th {
+    text-align: left; padding: 9px 12px;
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--text-dim); font-weight: 600;
+    border-bottom: 1px solid var(--border); background: var(--bg);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(94,234,212,.04); }
+  tbody td { padding: 9px 12px; vertical-align: top; }
+
+  .tag {
+    display: inline-block; background: rgba(94,234,212,.1); color: var(--accent);
+    border-radius: 4px; padding: 2px 7px; font-size: 0.72rem;
+    margin: 1px 2px 1px 0; font-family: var(--font-mono);
+  }
+  .tag.activity { background: rgba(251,191,36,.1); color: var(--gold); }
+
+  /* ─── Tree view ─── */
+  .tree-node {
+    padding: 6px 0; border-left: 2px solid var(--border);
+    margin-left: 16px; padding-left: 14px;
+  }
+  .tree-node:first-child { margin-left: 0; border-left: none; padding-left: 0; }
+  .tree-node .node-name {
+    font-size: 0.82rem; color: var(--text); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .tree-node .node-name:hover { color: var(--accent); }
+  .tree-node .node-name .arrow { color: var(--text-dim); font-size: 0.65rem; }
+  .tree-node .node-children { margin-top: 4px; }
+
+  /* ─── Raw JSON ─── */
+  .json-block {
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; overflow-x: auto; max-height: 260px; overflow-y: auto;
+    font-family: var(--font-mono); font-size: 0.75rem; color: var(--text);
+    white-space: pre; line-height: 1.7;
+  }
+  .json-block .k { color: var(--accent); }
+  .json-block .s { color: var(--gold); }
+  .json-block .n { color: #a78bfa; }
+  .json-block .b { color: var(--red); }
+
+  /* ─── Coord grid ─── */
+  .coord-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* ─── Loading pulse ─── */
+  @keyframes pulse { 0%,100% { opacity:.4; } 50% { opacity:1; } }
+  .loading { animation: pulse .8s ease infinite; color: var(--accent); font-size: 0.78rem; padding: 16px; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- HEADER -->
+  <header class="header">
+    <div class="logo">S</div>
+    <h1>Справочник организаций</h1>
+    <div class="spacer"></div>
+    <span class="status-dot" id="statusDot"></span>
+    <span class="status-label" id="statusLabel">подключение...</span>
+  </header>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <button class="nav-btn active" data-panel="orgs">
+      <span class="icon">🏢</span> Организации
+    </button>
+    <button class="nav-btn" data-panel="search">
+      <span class="icon">🔍</span> Поиск по названию
+    </button>
+    <button class="nav-btn" data-panel="byBuilding">
+      <span class="icon">🏗️</span> По зданию
+    </button>
+    <button class="nav-btn" data-panel="byActivity">
+      <span class="icon">📂</span> По деятельности
+    </button>
+    <button class="nav-btn" data-panel="nearby">
+      <span class="icon">📍</span> По геолокации
+    </button>
+    <div class="nav-sep"></div>
+    <button class="nav-btn" data-panel="buildings">
+      <span class="icon">🗺️</span> Здания
+    </button>
+    <button class="nav-btn" data-panel="activities">
+      <span class="icon">🌳</span> Дерево деятельности
+    </button>
+    <button class="nav-btn" onclick="window.open(BASE + '/docs', '_blank')">
+    <span class="icon">📘</span> Документация API
+    </button>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- Panel: All orgs -->
+    <section class="panel visible" id="panel-orgs">
+      <div class="panel-title">Все организации <div class="line"></div></div>
+      <div class="controls"><button class="btn" onclick="fetchOrgs()">Загрузить</button></div>
+      <div class="result-wrap" id="orgs-result"><div class="empty">Нажмите «Загрузить»</div></div>
+    </section>
+
+    <!-- Panel: Search -->
+    <section class="panel" id="panel-search">
+      <div class="panel-title">Поиск по названию <div class="line"></div></div>
+      <div class="controls">
+        <div class="field"><label>Название</label><input type="text" id="searchName" placeholder="Например: Рога"/></div>
+        <button class="btn" onclick="fetchSearch()">Найти</button>
+      </div>
+      <div class="result-wrap" id="search-result"><div class="empty">Введите запрос</div></div>
+    </section>
+
+    <!-- Panel: By Building -->
+    <section class="panel" id="panel-byBuilding">
+      <div class="panel-title">Организации в здании <div class="line"></div></div>
+      <div class="controls">
+        <div class="field"><label>Здание</label>
+          <select id="buildingSelect"><option value="">— загрузка —</option></select>
+        </div>
+        <button class="btn" onclick="fetchByBuilding()">Показать</button>
+      </div>
+      <div class="result-wrap" id="byBuilding-result"><div class="empty">Выберите здание</div></div>
+    </section>
+
+    <!-- Panel: By Activity -->
+    <section class="panel" id="panel-byActivity">
+      <div class="panel-title">Организации по деятельности <div class="line"></div></div>
+      <div class="controls">
+        <div class="field"><label>Деятельность</label>
+          <select id="activitySelect"><option value="">— загрузка —</option></select>
+        </div>
+        <button class="btn" onclick="fetchByActivity()">Показать</button>
+      </div>
+      <div class="result-wrap" id="byActivity-result"><div class="empty">Выберите деятельность</div></div>
+    </section>
+
+    <!-- Panel: Nearby -->
+    <section class="panel" id="panel-nearby">
+      <div class="panel-title">Поиск по геолокации <div class="line"></div></div>
+      <div class="controls">
+        <div class="field"><label>Широта</label><input type="number" id="nearLat" step="0.001" value="55.77"/></div>
+        <div class="field"><label>Долгота</label><input type="number" id="nearLng" step="0.001" value="37.62"/></div>
+        <div class="field"><label>Радиус, км</label><input type="number" id="nearRadius" step="0.1" value="5"/></div>
+        <button class="btn" onclick="fetchNearby()">Найти</button>
+      </div>
+      <div class="result-wrap" id="nearby-result"><div class="empty">Задайте параметры и нажмите «Найти»</div></div>
+    </section>
+
+    <!-- Panel: Buildings -->
+    <section class="panel" id="panel-buildings">
+      <div class="panel-title">Здания <div class="line"></div></div>
+      <div class="controls"><button class="btn" onclick="fetchBuildings()">Загрузить</button></div>
+      <div class="result-wrap" id="buildings-result"><div class="empty">Нажмите «Загрузить»</div></div>
+    </section>
+
+    <!-- Panel: Activities tree -->
+    <section class="panel" id="panel-activities">
+      <div class="panel-title">Дерево деятельностей <div class="line"></div></div>
+      <div class="controls"><button class="btn" onclick="fetchActivities()">Загрузить</button></div>
+      <div class="result-wrap" id="activities-result"><div class="empty">Нажмите «Загрузить»</div></div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+// ─── Config ───
+const BASE = 'http://localhost:8000';
+const HEADERS = { 'X-API-Key': 'secret-key-change-me', 'Accept': 'application/json' };
+
+// ─── Navigation ───
+document.querySelectorAll('.nav-btn[data-panel]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.panel).classList.add('visible');
+  });
+});
+
+// ─── Ping check ───
+async function pingCheck() {
+  try {
+    const r = await fetch(BASE + '/buildings', { headers: HEADERS, signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      document.getElementById('statusDot').classList.remove('off');
+      document.getElementById('statusLabel').textContent = 'бэкенд доступен';
+      return true;
+    }
+  } catch {}
+  document.getElementById('statusDot').classList.add('off');
+  document.getElementById('statusLabel').textContent = 'бэкенд недоступен';
+  return false;
+}
+pingCheck();
+setInterval(pingCheck, 5000);
+
+// ─── Util: set HTML ───
+function setResult(id, html) {
+  document.getElementById(id).innerHTML = html;
+}
+function loading(id) {
+  setResult(id, '<div class="loading">загрузка…</div>');
+}
+
+// ─── Util: JSON highlight ───
+function highlightJson(obj) {
+  const s = JSON.stringify(obj, null, 2);
+  return s
+    .replace(/("[\w_]+")(\s*:)/g, '<span class="k">$1</span>$2')
+    .replace(/: ("[^"]*")/g, ': <span class="s">$1</span>')
+    .replace(/: ([\d.]+)/g, ': <span class="n">$1</span>')
+    .replace(/: (true|false|null)/g, ': <span class="b">$1</span>');
+}
+
+// ─── Org row renderer ───
+function renderOrgRow(o) {
+  const phones = o.phones.map(p => `<span class="tag">${p}</span>`).join('');
+  const acts = o.activities.map(a => `<span class="tag activity">${a.name}</span>`).join('');
+  return `<tr>
+    <td style="color:#fff;font-weight:600">${o.id}</td>
+    <td style="color:#fff">${o.name}</td>
+    <td>${phones || '—'}</td>
+    <td>${o.building.address}<br/><small style="color:var(--text-dim)">${o.building.latitude}, ${o.building.longitude}</small></td>
+    <td>${acts || '—'}</td>
+  </tr>`;
+}
+
+function orgsTable(data) {
+  if (!data.length) return '<div class="empty">Результатов нет</div>';
+  return `<table>
+    <thead><tr>
+      <th>ID</th><th>Название</th><th>Телефоны</th><th>Здание</th><th>Деятельности</th>
+    </tr></thead>
+    <tbody>${data.map(renderOrgRow).join('')}</tbody>
+  </table>`;
+}
+
+// ─── Fetchers ───
+async function fetchOrgs() {
+  loading('orgs-result');
+  // load all orgs one by one — MVP hack: fetch buildings, then orgs by building
+  // Actually we have no /organizations endpoint. Use /organizations/search with empty-ish? No min_length=1.
+  // We'll just load buildings first, then fetch by each building and merge.
+  try {
+    const bRes = await fetch(BASE + '/buildings', { headers: HEADERS });
+    const buildings = await bRes.json();
+    let all = [];
+    for (const b of buildings) {
+      const r = await fetch(BASE + `/organizations/by-building/${b.id}`, { headers: HEADERS });
+      const orgs = await r.json();
+      all = all.concat(orgs);
+    }
+    // dedupe by id
+    const seen = new Set();
+    all = all.filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; });
+    setResult('orgs-result', orgsTable(all));
+  } catch (e) {
+    setResult('orgs-result', '<div class="empty" style="color:var(--red)">Ошибка: ' + e.message + '</div>');
+  }
+}
+
+async function fetchSearch() {
+  const name = document.getElementById('searchName').value.trim();
+  if (!name) { setResult('search-result', '<div class="empty">Введите название</div>'); return; }
+  loading('search-result');
+  try {
+    const r = await fetch(BASE + `/organizations/search?name=${encodeURIComponent(name)}`, { headers: HEADERS });
+    const data = await r.json();
+    setResult('search-result', orgsTable(data));
+  } catch (e) {
+    setResult('search-result', '<div class="empty" style="color:var(--red)">Ошибка: ' + e.message + '</div>');
+  }
+}
+
+async function fetchByBuilding() {
+  const id = document.getElementById('buildingSelect').value;
+  if (!id) return;
+  loading('byBuilding-result');
+  try {
+    const r = await fetch(BASE + `/organizations/by-building/${id}`, { headers: HEADERS });
+    const data = await r.json();
+    setResult('byBuilding-result', orgsTable(data));
+  } catch (e) {
+    setResult('byBuilding-result', '<div class="empty" style="color:var(--red)">Ошибка: ' + e.message + '</div>');
+  }
+}
+
+async function fetchByActivity() {
+  const id = document.getElementById('activitySelect').value;
+  if (!id) return;
+  loading('byActivity-result');
+  try {
+    const r = await fetch(BASE + `/organizations/by-activity/${id}`, { headers: HEADERS });
+    const data = await r.json();
+    setResult('byActivity-result', orgsTable(data));
+  } catch (e) {
+    setResult('byActivity-result', '<div class="empty" style="color:var(--red)">Ошибка: ' + e.message + '</div>');
+  }
+}
+
+async function fetchNearby() {
+  const lat = document.getElementById('nearLat').value;
+  const lng = document.getElementById('nearLng').value;
+  const r = document.getElementById('nearRadius').value;
+  if (!lat || !lng || !r) { setResult('nearby-result', '<div class="empty">Заполните все поля</div>'); return; }
+  loading('nearby-result');
+  try {
+    const res = await fetch(BASE + `/organizations/nearby?lat=${lat}&lng=${lng}&radius_km=${r}`, { headers: HEADERS });
+    const data = await res.json();
+    setResult('nearby-result', orgsTable(data));
+  } catch (e) {
+    setResult('nearby-result', '<div class="empty" style="color:var(--red)">Ошибка: ' + e.message + '</div>');
+  }
+}
+
+async function fetchBuildings() {
+  loading('buildings-result');
+  try {
+    const r = await fetch(BASE + '/buildings', { headers: HEADERS });
+    const data = await r.json();
+    if (!data.length) { setResult('buildings-result', '<div class="empty">Нет зданий</div>'); return; }
+    let html = `<table><thead><tr><th>ID</th><th>Адрес</th><th>Широта</th><th>Долгота</th></tr></thead><tbody>`;
+    for (const b of data) {
+      html += `<tr>
+        <td style="color:#fff;font-weight:600">${b.id}</td>
+        <td style="color:#fff">${b.address}</td>
+        <td><span class="tag">${b.latitude}</span></td>
+        <td><span class="tag">${b.longitude}</span></td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    setResult('buildings-result', html);
+  } catch (e) {
+    setResult('buildings-result', '<div class="empty" style="color:var(--red)">Ошибка: ' + e.message + '</div>');
+  }
+}
+
+// ─── Activities tree ───
+async function fetchActivities() {
+  loading('activities-result');
+  try {
+    const r = await fetch(BASE + '/activities', { headers: HEADERS });
+    const data = await r.json();
+    // build tree
+    const map = {};
+    data.forEach(a => { map[a.id] = { ...a, children: [] }; });
+    const roots = [];
+    data.forEach(a => {
+      if (a.parent_id && map[a.parent_id]) map[a.parent_id].children.push(map[a.id]);
+      else if (!a.parent_id) roots.push(map[a.id]);
+    });
+    setResult('activities-result', '<div style="padding:14px 18px">' + roots.map(renderTree).join('') + '</div>');
+  } catch (e) {
+    setResult('activities-result', '<div class="empty" style="color:var(--red)">Ошибка: ' + e.message + '</div>');
+  }
+}
+
+function renderTree(node) {
+  const hasChildren = node.children.length > 0;
+  let html = `<div class="tree-node">
+    <div class="node-name" onclick="navigateToActivity(${node.id})">
+      ${hasChildren ? '<span class="arrow">▶</span>' : '<span class="arrow" style="opacity:0">▶</span>'}
+      <span class="tag activity" style="cursor:pointer">${node.name}</span>
+      <small style="color:var(--text-dim)">#${node.id} lv${node.depth}</small>
+    </div>`;
+  if (hasChildren) {
+    html += `<div class="node-children" style="margin-left:20px;border-left:1px solid var(--border);padding-left:14px;margin-top:4px">
+      ${node.children.map(renderTree).join('')}
+    </div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function navigateToActivity(id) {
+  // switch to byActivity panel and auto-fetch
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
+  document.querySelector('.nav-btn[data-panel="byActivity"]').classList.add('active');
+  document.getElementById('panel-byActivity').classList.add('visible');
+  document.getElementById('activitySelect').value = id;
+  fetchByActivity();
+}
+
+// ─── Populate selects on load ───
+async function populateSelects() {
+  try {
+    const [bRes, aRes] = await Promise.all([
+      fetch(BASE + '/buildings', { headers: HEADERS }),
+      fetch(BASE + '/activities', { headers: HEADERS })
+    ]);
+    if (bRes.ok) {
+      const buildings = await bRes.json();
+      const sel = document.getElementById('buildingSelect');
+      sel.innerHTML = '<option value="">— выберите —</option>';
+      buildings.forEach(b => {
+        sel.innerHTML += `<option value="${b.id}">${b.address}</option>`;
+      });
+    }
+    if (aRes.ok) {
+      const activities = await aRes.json();
+      const sel = document.getElementById('activitySelect');
+      sel.innerHTML = '<option value="">— выберите —</option>';
+      activities.forEach(a => {
+        const indent = '&nbsp;'.repeat((a.depth - 1) * 4);
+        sel.innerHTML += `<option value="${a.id}">${indent}${a.name} (lv${a.depth})</option>`;
+      });
+    }
+  } catch {}
+}
+populateSelects();
+
+// Enter key on search
+document.getElementById('searchName').addEventListener('keydown', e => { if (e.key === 'Enter') fetchSearch(); });
+</script>
+</body>
+</html>
